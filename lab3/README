@@ -1,0 +1,15 @@
+
+This readme is for compiling and running of my program.
+
+Compile and Run the program:(for the experient of reponse time comparison,see output of time consuming.)
+javac DNSClient.java 
+java DNClient tcp 8.8.8.8 cnn.com NS
+java DNSClient udp 8.8.8.8 cnn.com NS
+
+
+Run Script to run my program(for the experient of camparison of retransmission rate
+and loss rate) is the file: run.sh
+./run.sh > /dev/null
+
+The result and analysis of my experient is in the file: Report.pdf
+

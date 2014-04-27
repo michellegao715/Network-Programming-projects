@@ -1,0 +1,14 @@
+Check if the proxy cache works, write a Client.java to send a httprequest to get response. 
+
+Compile and run program in command line:
+Compile:
+javac ProxyCache.java
+javac Client.java
+
+Run:
+java ProxyCache 5678
+java Client http://www.random.org/integers/\?num\=100\&min\=1\&max\=100\&col\=5\&base\=10\&format\=html\&rnd\=new www.random.org
+
+Test Result:
+If the random numbers I get are same, then the cache is working. 
+

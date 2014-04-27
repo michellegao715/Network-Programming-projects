@@ -1,0 +1,45 @@
+README
+
+Author: 	Jie Gao
+Class:		CS 621 Network Programming
+Professor:	EJ Jung
+
+USAGE:
+javac Driver.java 
+java Driver
+(or java -jar lab4.jar)
+
+About Project:
+In the Driver, I use 4 threads to implement multithread web cache:
+thread 1: handle service announcement(UDPDiscoveryClient--serviceAnnounce)
+thread 2: handle receive announcement(UDPDiscoveryServer--build the list of IPs which is running the proxy cache)
+thread 3: listen request from user(check my own cache, if don't find cache, then send request to peer, if my peer don't have, then send request to dns server.).  
+thread 4: listen from peer(read response from peer)A
+
+Test broadcast(service discovery's functionality):
+1.ssh to two g12 computers: g12xx,g12xy.
+2.under g12xx: java Driver
+3.under g12xy: java Driver
+Then the output:
+(under g12xx)
+Known local ip is : 138.202.171.123
+Received from 138.202.171.111 cs621-cache  (this is the type of service)
+(under g12xy):
+Known local ip is:138.202.171.111
+Received from 138.202.171.123 cs621-cache
+
+Test proxy server:
+1.On the first computer: set up firefox's proxy server, Preference- Advanced-Network-Settings-Manual proxy configuration
+Http Proxy: IP of current computer, Port:5678.
+2. Repeat step in the second computer. 
+3. On the first computer: in terminal: java Driver 
+4. On the second computer: java Driver > output & 
+Then: go to a website. Wait for the first computer's program's output.
+Go to :http://git-scm.com/book/ch2-5.html 
+or Go to : www.baidu.com
+( Make sure you have NewAnnounceService.java NewAnnounceReceiver.java NewProxyServer.java NewhandlePeerResponsejava in the same directory)
+
+For extra credit (Experiment Report)
+See the experiment implementation and result in ExperimentReport.pdf. 
+
+
