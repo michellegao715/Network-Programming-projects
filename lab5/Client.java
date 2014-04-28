@@ -7,7 +7,7 @@ public class Client {
     private boolean isConnected = false;
     private String sourceFilePath = "/Users/richardchen331/testfile.txt";
     private FileEvent fileEvent = null;
-    private String destinationPath = "~/workspace/CourseProjects/cs621/lab5";
+    private String destinationPath = "~/workspace/cs621/lab5";
  
     public Client() {
  
