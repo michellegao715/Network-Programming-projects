@@ -40,13 +40,15 @@ public class Server {
                 System.out.println("Error occurred ..So exiting");
                 System.exit(0);
             }
-            String outputFile = fileEvent.getDestinationDirectory() + fileEvent.getFilename();
+            String outputFile = fileEvent.getDestinationDirectory() + "/" + fileEvent.getFilename();
             if (!new File(fileEvent.getDestinationDirectory()).exists()) {
                 new File(fileEvent.getDestinationDirectory()).mkdirs();
             }
             dstFile = new File(outputFile);
+			if(!dstFile.exists())
+				dstFile.createNewFile();
 			System.out.println("The received file is saved at "+outputFile);
-            fileOutputStream = new FileOutputStream(dstFile);
+            fileOutputStream = new FileOutputStream(dstFile, false);
             fileOutputStream.write(fileEvent.getFileData());
             fileOutputStream.flush();
             fileOutputStream.close();
