@@ -1,83 +1,114 @@
 import java.io.*;
-import java.net.Socket;
+import java.lang.*;
+import java.net.*;
+import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.zip.*;
+
+class FileFetcher extends RequestSender implements Runnable {
+	private Thread thread;
+	private String name;
+	private String filename;
+	private int fetcherId;
+	private int numFetchers;
+	private long numSegments;
+	private RandomAccessFile file;
+   
+	public FileFetcher(String name, String serverIP, int serverPort, String filename, int fetcherId, int numFetchers, long numSegments, RandomAccessFile file){
+		super(serverIP, serverPort);
+		this.name = name;
+		this.filename = filename;
+		this.fetcherId = fetcherId;
+		this.numFetchers = numFetchers;
+		this.numSegments = numSegments;
+		this.file = file;
+	}
+	
+	private synchronized void writeToFile(long segmentId, byte[] contentData) {
+		try {
+			file.seek(segmentId * DATA_LENGTH);
+			file.write(contentData);
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+	}
+   
+	public void run() {
+		try {
+			connect();
+			
+			byte[] contentData = new byte[DATA_LENGTH];
+			
+			for(long i = fetcherId;i < numSegments;i += numFetchers) {
+				sendRequest(Client.FILE_SEGMENT_REQUEST_HEADER + filename + "\t" + i, FILE_SEGMENT_RESPONSE_HEADER + i, contentData);
+				writeToFile(i, contentData);
+			}
+			
+			close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+}
  
-public class Client {
-    private Socket socket = null;
-    private ObjectOutputStream outputStream = null;
-    private boolean isConnected = false;
-    private String sourceFilePath = "/Users/richardchen331/testfile.txt";
-    private FileEvent fileEvent = null;
-    private String destinationPath = "/home/richardchen/workspace/cs621/lab5";
+public class Client extends RequestSender {
+	static final int NUM_THREADS = 8;
  
-    public Client() {
+	public Client(String ip, int port) {
+		super(ip, port);
+	}
+	
+	private RandomAccessFile createFile(String filename, long size) {
+		RandomAccessFile file = null;
+		try {
+			file = new RandomAccessFile(filename, "rw");
+			file.setLength(size);
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+		return file;
+	}
+	
+	public void getFile(String filename) {
+		try {
+			byte[] contentData = new byte[DATA_LENGTH];
+		
+			// 1. Get file size
+			System.out.println("Getting file size");
+			long totalFileSize = -1;
+			sendRequest(FILE_SIZE_REQUEST_HEADER + filename, FILE_SIZE_RESPONSE_HEADER, contentData);
+			totalFileSize = Long.parseLong(byteArray2String(contentData));
+			long numSegments = (totalFileSize - 1) / DATA_LENGTH + 1;
+			System.out.println("file size: " + numSegments);
+		
+			// 2. Create file to save data
+			RandomAccessFile file = createFile(filename, totalFileSize);
+		
+			// 3. Get all file segments
+			List<Thread> threads = new ArrayList<Thread>();
+			for(int i = 0;i < NUM_THREADS;++i) {
+				FileFetcher fetcher = new FileFetcher("", serverIP, serverPort, filename, i, NUM_THREADS, numSegments, file);
+				Thread thread = new Thread(fetcher);
+				thread.start();
+				threads.add(thread);
+			}
+			for (Thread thread: threads) {
+				thread.join();
+			}
+		
+			file.close();
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+	}
  
-    }
- 
-    /**
-     * Connect with server code running in local host or in any other host
-     */
-    public void connect() {
-        while (!isConnected) {
-            try {
-                socket = new Socket("10.0.0.25", 4445);
-                outputStream = new ObjectOutputStream(socket.getOutputStream());
-                isConnected = true;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
- 
-    /**
-     * Sending FileEvent object.
-     */
-    public void sendFile() {
-        fileEvent = new FileEvent();
-        String fileName = sourceFilePath.substring(sourceFilePath.lastIndexOf("/") + 1, sourceFilePath.length());
-        String path = sourceFilePath.substring(0, sourceFilePath.lastIndexOf("/") + 1);
-        fileEvent.setDestinationDirectory(destinationPath);
-        fileEvent.setFilename(fileName);
-        fileEvent.setSourceDirectory(sourceFilePath);
-        File file = new File(sourceFilePath);
-        if (file.isFile()) {
-            try {
-                DataInputStream diStream = new DataInputStream(new FileInputStream(file));
-                long len = (int) file.length();
-                byte[] fileBytes = new byte[(int) len];
-                int read = 0;
-                int numRead = 0;
-                while (read < fileBytes.length && (numRead = diStream.read(fileBytes, read,
-                        fileBytes.length - read)) >= 0) {
-                    read = read + numRead;
-                }
-                fileEvent.setFileSize(len);
-                fileEvent.setFileData(fileBytes);
-                fileEvent.setStatus("Success");
-            } catch (Exception e) {
-                e.printStackTrace();
-                fileEvent.setStatus("Error");
-            }
-        } else {
-            System.out.println("path specified is not pointing to a file");
-            fileEvent.setStatus("Error");
-        }
-        //Now writing the FileEvent object to socket
-        try {
-            outputStream.writeObject(fileEvent);
-            System.out.println("Done...Going to exit");
-            Thread.sleep(3000);
-            System.exit(0);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
- 
-    }
- 
-    public static void main(String[] args) {
-        Client client = new Client();
-        client.connect();
-        client.sendFile();
-    }
+	public static void main(String[] args) {
+		String serverIP = args[0];
+		int serverPort = Integer.parseInt(args[1]);
+		String requestedFileName = args[2];
+		Client client = new Client(serverIP, serverPort);
+		client.connect();
+		client.getFile(requestedFileName);
+		client.close();
+	}
 }

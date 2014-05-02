@@ -1,73 +1,90 @@
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.io.*;
+import java.lang.*;
+import java.net.*;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.zip.*;
  
-public class Server {
-    private ServerSocket serverSocket = null;
-    private Socket socket = null;
-    private ObjectInputStream inputStream = null;
-    private FileEvent fileEvent;
-    private File dstFile = null;
-    private FileOutputStream fileOutputStream = null;
+public class Server extends RequestSender {
+	private HashMap<String, RandomAccessFile> openedFiles;
  
-    public Server() {
- 
+    public Server(int port) {
+		super("0.0.0.0", port);
+		openedFiles = new HashMap<String, RandomAccessFile>();
     }
- 
-    /**
-     * Accepts socket connection
-     */
-    public void doConnect() {
-        try {
-            serverSocket = new ServerSocket(4445);
-            socket = serverSocket.accept();
-            inputStream = new ObjectInputStream(socket.getInputStream());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
- 
-    /**
-     * Reading the FileEvent object and copying the file to disk.
-     */
-    public void downloadFile() {
-        try {
-            fileEvent = (FileEvent) inputStream.readObject();
-            if (fileEvent.getStatus().equalsIgnoreCase("Error")) {
-                System.out.println("Error occurred ..So exiting");
-                System.exit(0);
-            }
-            String outputFile = fileEvent.getDestinationDirectory() + "/" + fileEvent.getFilename();
-            if (!new File(fileEvent.getDestinationDirectory()).exists()) {
-                new File(fileEvent.getDestinationDirectory()).mkdirs();
-            }
-            dstFile = new File(outputFile);
-			if(!dstFile.exists())
-				dstFile.createNewFile();
-			System.out.println("The received file is saved at "+outputFile);
-            fileOutputStream = new FileOutputStream(dstFile, false);
-            fileOutputStream.write(fileEvent.getFileData());
-            fileOutputStream.flush();
-            fileOutputStream.close();
-            System.out.println("Output file : " + outputFile + " is successfully saved ");
-            Thread.sleep(3000);
-            System.exit(0);
- 
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
+	
+	private void handleFileSizeRequest(String requestHeader, InetAddress addr, int port) {
+		String filename = requestHeader.substring(FILE_SIZE_REQUEST_HEADER.length());
+		RandomAccessFile file = null;
+		try {
+			if(openedFiles.containsKey(filename))
+				file = openedFiles.get(filename);
+			else {
+				file = new RandomAccessFile(filename, "r");
+				openedFiles.put(filename, file);
+			}
+			long fileSize = file.length();
+			sendResponse(FILE_SIZE_RESPONSE_HEADER, String.valueOf(fileSize).getBytes(), addr, port);
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void handleFileSegmentRequest(String requestHeader, InetAddress addr, int port) {
+		String filenameAndSegmentId = requestHeader.substring(FILE_SEGMENT_REQUEST_HEADER.length());
+		String[] parts = filenameAndSegmentId.split("\t");
+		String filename = parts[0];
+		int segmentId = Integer.parseInt(parts[1]);
+		byte[] contentData = new byte[DATA_LENGTH];
+		RandomAccessFile file = openedFiles.get(filename);
+		try {
+			file.read(contentData, segmentId * DATA_LENGTH, DATA_LENGTH);
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+		sendResponse(FILE_SEGMENT_RESPONSE_HEADER + segmentId, contentData, addr, port);
+	}
+	
+	public void start() {
+		byte[] receiveData = new byte[PACKET_LENGTH];
+		String requestHeader = "";
+		InetAddress addr = null;
+		int port = 0;
+		
+		try {
+			socket = new DatagramSocket(serverPort);
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
+		
+		while(true)
+		{
+			try {
+				DatagramPacket receivePacket = new DatagramPacket(receiveData, PACKET_LENGTH);
+				socket.receive(receivePacket);
+				System.out.println("Received request");
+				addr = receivePacket.getAddress();
+				port = receivePacket.getPort();
+				byte[] rawData = receivePacket.getData();
+				System.out.println(rawData.length);
+				if(!verifyCRC32(rawData))
+					continue;
+				requestHeader = getHeader(rawData);
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
+			System.out.println("request header: " + requestHeader);
+			if(requestHeader.startsWith(FILE_SIZE_REQUEST_HEADER)) {
+				handleFileSizeRequest(requestHeader, addr, port);	
+			} else if(requestHeader.startsWith(FILE_SEGMENT_REQUEST_HEADER)) {
+				handleFileSegmentRequest(requestHeader, addr, port);	
+			}
+		}
+	}
  
     public static void main(String[] args) {
-        Server server = new Server();
-        server.doConnect();
-        server.downloadFile();
+		int port = Integer.parseInt(args[0]);
+		Server server = new Server(port);
+		server.start();
     }
 }
