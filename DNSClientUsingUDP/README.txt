@@ -1,4 +1,15 @@
-Run the program and the result. 
+Project Description:
+Using UDP to implement a basic DNS client to communicate with a DNS server. 
+Take as input at the command line:
+1. the IP address of the DNS server
+2. the domain name to look up
+3. the type of query(e.g., [A,NS,MX])
+
+Usage:
+javac DNSClient.java 
+java DNSClient 8.8.8.8 www.cnn.com A
+
+Report:
 When I run the program:
 java Client 8.8.8.8 www.google.com.hk A
 I get the output:
