@@ -1,0 +1,16 @@
+README:
+I implement a client(Client.java) and server(Server.java) both extend RequestSender which is responsible for 
+sendRequest, sendResponse, error detection,building socket for connection.
+For error detection, I implement CRC(calculateCRC32 and verifyCRC32) when there is communication between server and client.
+FileFetcher is used by client to download file sent by server.
+
+Run the program:
+java Server -serverPort 
+java Client -serverIP -serverPort -filename
+
+Requirement:
+1. Use UDP for communication
+2. Use raw sockets for communication
+3. May not use any libraries for reliable data transfer. Design your own protocol on your own. 
+
+
